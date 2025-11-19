@@ -1,0 +1,81 @@
+:root {
+  --bg: #0f1724;
+  --card: #0b1220;
+  --accent: #06b6d4;
+  --muted: #94a3b8;
+  --glass: rgba(255, 255, 255, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Roboto, Arial, sans-serif;
+  background: linear-gradient(180deg, #071126 0%, #0b1220 100%);
+  color: #e6eef6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.app {
+  max-width: 1000px;
+  margin: 28px auto;
+  padding: 20px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  text-align: center;
+}
+
+header .sub {
+  color: var(--muted);
+  margin-top: 6px;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+/* --- Controls Section --- */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+input[type=number],
+select {
+  background: var(--glass);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: #e6eef6;
+  padding: 8px 10px;
+  border-radius: 8px;
+  outline: none;
+  min-width: 120px;
+}
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e6eef6;
+  padding: 8px 12px;
+  border-radius: 8px;
+
+}
