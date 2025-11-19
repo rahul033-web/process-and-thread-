@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PROCESS AND THREAD CONTROL</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Process & Thread — Advanced Scheduler </h1>
+      <p class="sub">FCFS • SJF  • Priority • Round Robin</p>
+    </header>
+
+    <section class="controls">
+      <div class="left">
+        <div class="input-row">
+          <input id="arrival" type="number" placeholder="Arrival (e.g. 0)" />
+          <input id="burst" type="number" placeholder="Burst (e.g. 5)" />
+          <input id="priority" type="number" placeholder="Priority (lower = higher)" />
+          <button id="addBtn">Add Process</button>
+        </div>
+
+        <div class="input-row">
+          <select id="algorithm">
+            <option value="fcfs">FCFS (First Come First Serve)</option>
+            <option value="sjf">SJF (Shortest Job First — Non-preemptive)</option>
+           
+            <option value="priority">Priority (Non-preemptive)</option>
+            <option value="rr">Round Robin</option>
+          </select>
+
+          <input id="quantum" type="number" placeholder="Quantum (for RR)" style="width:140px" />
+          <button id="runBtn" class="primary">Run Scheduler</button>
+        </div>
+
+        <div class="input-row">
+          <button id="clearBtn">Clear Processes</button>
+          <button id="resetBtn">Reset All</button>
+        </div>
+      </div>
+
+      
+
+    <section class="table-section">
+      <table id="processTable">
+        <thead>
+          <tr>
+            <th>PID</th><th>Arrival</th><th>Burst</th><th>Priority</th><th>Waiting</th><th>Turnaround</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="gantt-section">
+      <h2>Gantt Chart</h2>
+      <div id="gantt" class="gantt"></div>
+      <div id="results" class="results"></div>
+    </section>
+
+    <footer>
+      <small> Process & Thread Control · Advanced Scheduler</small>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
