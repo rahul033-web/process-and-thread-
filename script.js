@@ -1,250 +1,315 @@
-// --- CPU Scheduling Simulator (All Algorithms) ---
 
-let processes = [];
-let pidCount = 1;
+const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const load = k => {
+  const v = localStorage.getItem(k);
+  return v ? JSON.parse(v) : null;
+};
 
-document.getElementById("addBtn").addEventListener("click", addProcess);
-document.getElementById("runBtn").addEventListener("click", runScheduler);
-document.getElementById("clearBtn").addEventListener("click", clearTable);
-document.getElementById("resetBtn").addEventListener("click", resetAll);
+// ---------- Process list state (scheduler page) ----------
+let processes = load('processList') || [];
+let nextPid = processes.length ? Math.max(...processes.map(p=>p.pidNum))+1 : 1;
 
-function addProcess() {
-  const arrival = parseInt(document.getElementById("arrival").value);
-  const burst = parseInt(document.getElementById("burst").value);
-  const priority = parseInt(document.getElementById("priority").value || 0);
+// ---------- Helpers ----------
+function makePid(n){ return 'P' + n; }
 
-  if (isNaN(arrival) || isNaN(burst)) {
-    alert("Please enter valid Arrival and Burst time.");
-    return;
-  }
+// ---------- Scheduler Page: DOM refs & initial render ----------
+const addBtn = document.getElementById('addBtn');
+const runBtn = document.getElementById('runBtn');
+const clearBtn = document.getElementById('clearBtn');
+const resetBtn = document.getElementById('resetBtn');
 
-  const pid = "P" + pidCount++;
-  processes.push({ pid, arrival, burst, priority });
-  renderTable();
-}
-
-function renderTable(results = null) {
-  const tbody = document.querySelector("#processTable tbody");
-  tbody.innerHTML = "";
-
-  processes.forEach((p, i) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
+function updateTable(){
+  const tbody = document.querySelector('#processTable tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  processes.forEach(p => {
+    tbody.innerHTML += `<tr>
       <td>${p.pid}</td>
       <td>${p.arrival}</td>
       <td>${p.burst}</td>
-      <td>${p.priority || "-"}</td>
-      <td>${results ? results.waiting[i] : 0}</td>
-      <td>${results ? results.turnaround[i] : 0}</td>
-    `;
-    tbody.appendChild(tr);
+      <td>${p.priority === null ? '-' : p.priority}</td>
+      <td>${p.waiting != null ? p.waiting : '-'}</td>
+      <td>${p.tat != null ? p.tat : '-'}</td>
+    </tr>`;
   });
 }
 
-function runScheduler() {
-  if (processes.length === 0) {
-    alert("Please add some processes first.");
+// initialize table on load if scheduler page
+if(document.querySelector('#processTable')) updateTable();
+
+// ---------- Add process ----------
+if(addBtn){
+  addBtn.addEventListener('click', ()=>{
+    const a = document.getElementById('arrival').value;
+    const b = document.getElementById('burst').value;
+    const pr = document.getElementById('priority').value;
+
+    if(a === '' || b === '') { alert('Arrival and Burst required'); return; }
+    const arrival = parseInt(a,10), burst = parseInt(b,10);
+    if(Number.isNaN(arrival) || Number.isNaN(burst) || arrival < 0 || burst <= 0){
+      alert('Enter valid numbers (arrival >=0, burst > 0)');
+      return;
+    }
+
+    const proc = {
+      pid: makePid(nextPid),
+      pidNum: nextPid,
+      arrival,
+      burst,
+      priority: pr.trim() === '' ? null : parseInt(pr,10),
+      waiting: null,
+      tat: null
+    };
+    nextPid++;
+    processes.push(proc);
+    save('processList', processes);
+    updateTable();
+
+    // clear inputs
+    document.getElementById('arrival').value = '';
+    document.getElementById('burst').value = '';
+    document.getElementById('priority').value = '';
+  });
+}
+
+// ---------- Clear & Reset ----------
+if(clearBtn){
+  clearBtn.addEventListener('click', ()=>{
+    processes = [];
+    nextPid = 1;
+    save('processList', processes);
+    updateTable();
+  });
+}
+if(resetBtn){
+  resetBtn.addEventListener('click', ()=>{
+    if(confirm('Reset ALL saved data?')){
+      localStorage.clear();
+      processes = [];
+      nextPid = 1;
+      updateTable();
+    }
+  });
+}
+
+// ---------- Show/hide quantum ----------
+function toggleQuantum(){
+  const algo = document.getElementById('algorithm').value;
+  const qDiv = document.getElementById('quantumDiv');
+  if(algo === 'rr') qDiv.style.display = 'block';
+  else qDiv.style.display = 'none';
+}
+// attach if select exists
+const algoSelect = document.getElementById('algorithm');
+if(algoSelect) algoSelect.addEventListener('change', toggleQuantum);
+
+// ---------- Run scheduler (navigate to output) ----------
+if(runBtn){
+  runBtn.addEventListener('click', ()=>{
+    processes = processes.filter(p=>p && typeof p.arrival === 'number'); // sanity
+    if(processes.length === 0){ alert('Add at least one process'); return; }
+    const algo = document.getElementById('algorithm').value;
+    if(!algo){ alert('Choose an algorithm'); return; }
+    let quantum = null;
+    if(algo === 'rr'){
+      const q = document.getElementById('quantum').value;
+      if(!q || isNaN(parseInt(q,10)) || parseInt(q,10) <= 0){ alert('Enter valid quantum for Round Robin'); return; }
+      quantum = parseInt(q,10);
+    }
+    // persist
+    save('processList', processes);
+    save('algorithm', algo);
+    save('quantum', quantum);
+    // go
+    window.location.href = 'output.html';
+  });
+}
+
+// ---------- OUTPUT PAGE: scheduling algorithms & rendering ----------
+function renderOutput(){
+  const outTableBody = document.querySelector('#outputTable tbody');
+  const ganttDiv = document.getElementById('gantt');
+  const algo = load('algorithm') || 'fcfs';
+  const quantum = load('quantum');
+  let list = load('processList') || [];
+
+  document.getElementById('algoOut').innerText = (algo || '').toUpperCase();
+  document.getElementById('quantumOut').innerText = quantum || '-';
+
+  if(!list.length){
+    if(outTableBody) outTableBody.innerHTML = `<tr><td colspan="6">No processes found. Add processes on Scheduler page.</td></tr>`;
     return;
   }
 
-  const algo = document.getElementById("algorithm").value;
-  const quantum = parseInt(document.getElementById("quantum").value) || 2;
+  // deep clone list to avoid mutating stored data
+  list = list.map(p => ({...p}));
 
-  let result;
-  switch (algo) {
-    case "fcfs":
-      result = fcfs(processes);
-      break;
-    case "sjf":
-      result = sjf(processes);
-      break;
-    case "srtf":
-      result = srtf(processes);
-      break;
-    case "priority":
-      result = priorityScheduling(processes);
-      break;
-    case "rr":
-      result = roundRobin(processes, quantum);
-      break;
+  // Sort helper for stable order
+  const byArrivalThenPid = (a,b) => a.arrival - b.arrival || a.pidNum - b.pidNum;
+
+  let gantt = []; // {pid, start, end}
+
+  // helper to reset waiting/tat before calculate
+  list.forEach(p => { p.waiting = 0; p.tat = 0; });
+
+  if(algo === 'fcfs'){
+    list.sort(byArrivalThenPid);
+    let t = 0;
+    list.forEach(p=>{
+      if(t < p.arrival) t = p.arrival;
+      const start = t;
+      const end = t + p.burst;
+      gantt.push({pid: p.pid, start, end});
+      p.waiting = start - p.arrival;
+      p.tat = p.waiting + p.burst;
+      t = end;
+    });
   }
-
-  renderTable(result);
-  renderGantt(result.gantt);
-  showAverages(result.waiting, result.turnaround);
-}
-
-// --- FCFS ---
-function fcfs(procs) {
-  let arr = [...procs].sort((a, b) => a.arrival - b.arrival);
-  let time = 0, gantt = [];
-  let waiting = [], turnaround = [];
-
-  arr.forEach(p => {
-    if (time < p.arrival) time = p.arrival;
-    let start = time;
-    time += p.burst;
-    gantt.push({ pid: p.pid, start, end: time });
-    turnaround.push(time - p.arrival);
-    waiting.push(turnaround[turnaround.length - 1] - p.burst);
-  });
-
-  return { gantt, waiting, turnaround };
-}
-
-// --- SJF (Non-preemptive) ---
-function sjf(procs) {
-  let arr = [...procs].sort((a, b) => a.arrival - b.arrival);
-  let completed = [];
-  let time = 0, gantt = [], waiting = [], turnaround = [];
-
-  while (completed.length < arr.length) {
-    let available = arr.filter(p => !completed.includes(p) && p.arrival <= time);
-    if (available.length === 0) { time++; continue; }
-
-    available.sort((a, b) => a.burst - b.burst);
-    let current = available[0];
-    let start = time;
-    time += current.burst;
-    gantt.push({ pid: current.pid, start, end: time });
-    turnaround.push(time - current.arrival);
-    waiting.push(turnaround[turnaround.length - 1] - current.burst);
-    completed.push(current);
-  }
-
-  return { gantt, waiting, turnaround };
-}
-
-// --- SRTF (Preemptive SJF) ---
-function srtf(procs) {
-  let arr = [...procs].map(p => ({ ...p, rem: p.burst }));
-  let completed = 0, time = 0, gantt = [];
-  let waiting = new Array(arr.length).fill(0);
-  let turnaround = new Array(arr.length).fill(0);
-  let lastPid = null;
-
-  while (completed < arr.length) {
-    let available = arr.filter(p => p.arrival <= time && p.rem > 0);
-    if (available.length === 0) { time++; continue; }
-
-    available.sort((a, b) => a.rem - b.rem);
-    let current = available[0];
-
-    if (lastPid !== current.pid) {
-      if (lastPid !== null) gantt[gantt.length - 1].end = time;
-      gantt.push({ pid: current.pid, start: time, end: time + 1 });
-      lastPid = current.pid;
-    } else gantt[gantt.length - 1].end++;
-
-    current.rem--;
-    time++;
-
-    if (current.rem === 0) {
-      completed++;
-      let t = arr.find(p => p.pid === current.pid);
-      turnaround[arr.indexOf(t)] = time - t.arrival;
-      waiting[arr.indexOf(t)] = turnaround[arr.indexOf(t)] - t.burst;
+  else if(algo === 'sjf'){
+    // non-preemptive SJF
+    let t = 0;
+    const done = new Set();
+    while(done.size < list.length){
+      const ready = list.filter(p => p.arrival <= t && !done.has(p.pid));
+      if(ready.length === 0){
+        t++;
+        continue;
+      }
+      ready.sort((a,b)=> a.burst - b.burst || a.arrival - b.arrival);
+      const p = ready[0];
+      const start = t < p.arrival ? p.arrival : t;
+      const end = start + p.burst;
+      gantt.push({pid: p.pid, start, end});
+      p.waiting = start - p.arrival;
+      p.tat = p.waiting + p.burst;
+      t = end;
+      done.add(p.pid);
     }
   }
-
-  return { gantt, waiting, turnaround };
-}
-
-// --- Priority Scheduling (Non-preemptive) ---
-function priorityScheduling(procs) {
-  let arr = [...procs].sort((a, b) => a.arrival - b.arrival);
-  let completed = [];
-  let time = 0, gantt = [], waiting = [], turnaround = [];
-
-  while (completed.length < arr.length) {
-    let available = arr.filter(p => !completed.includes(p) && p.arrival <= time);
-    if (available.length === 0) { time++; continue; }
-
-    available.sort((a, b) => a.priority - b.priority);
-    let current = available[0];
-    let start = time;
-    time += current.burst;
-    gantt.push({ pid: current.pid, start, end: time });
-    turnaround.push(time - current.arrival);
-    waiting.push(turnaround[turnaround.length - 1] - current.burst);
-    completed.push(current);
-  }
-
-  return { gantt, waiting, turnaround };
-}
-
-// --- Round Robin ---
-function roundRobin(procs, quantum) {
-  let arr = [...procs].map(p => ({ ...p, rem: p.burst }));
-  let time = 0, queue = [], gantt = [];
-  let waiting = new Array(arr.length).fill(0);
-  let turnaround = new Array(arr.length).fill(0);
-
-  arr.sort((a, b) => a.arrival - b.arrival);
-  queue.push(arr[0]);
-  let idx = 1;
-
-  while (queue.length > 0) {
-    let current = queue.shift();
-    if (time < current.arrival) time = current.arrival;
-    let start = time;
-
-    let exec = Math.min(quantum, current.rem);
-    time += exec;
-    current.rem -= exec;
-    gantt.push({ pid: current.pid, start, end: time });
-
-    // Add new arrivals
-    for (; idx < arr.length && arr[idx].arrival <= time; idx++) {
-      queue.push(arr[idx]);
+  else if(algo === 'priority'){
+    // non-preemptive priority (lower value = higher priority). null priority => treated large
+    let t = 0;
+    const done = new Set();
+    while(done.size < list.length){
+      const ready = list.filter(p => p.arrival <= t && !done.has(p.pid));
+      if(ready.length === 0){
+        t++;
+        continue;
+      }
+      ready.sort((a,b)=>{
+        const pa = pPriorityVal(a), pb = pPriorityVal(b);
+        return pa - pb || a.arrival - b.arrival;
+      });
+      const p = ready[0];
+      const start = t < p.arrival ? p.arrival : t;
+      const end = start + p.burst;
+      gantt.push({pid: p.pid, start, end});
+      p.waiting = start - p.arrival;
+      p.tat = p.waiting + p.burst;
+      t = end;
+      done.add(p.pid);
     }
 
-    if (current.rem > 0) {
-      queue.push(current);
-    } else {
-      let i = arr.findIndex(p => p.pid === current.pid);
-      turnaround[i] = time - current.arrival;
-      waiting[i] = turnaround[i] - current.burst;
+    function pPriorityVal(p){ return p.priority === null ? 1e9 : p.priority; }
+  }
+  else if(algo === 'rr'){
+    // Round Robin (preemptive)
+    const q = parseInt(quantum,10) || 1;
+    let t = 0;
+    const rem = {};
+    list.forEach(p => rem[p.pid] = p.burst);
+    const finished = new Set();
+    const arrivalOrdered = [...list].sort(byArrivalThenPid);
+    const queue = [];
+    let idx = 0; // index in arrivalOrdered to push newly arrived
+    while(finished.size < list.length){
+      // enqueue arrived processes
+      while(idx < arrivalOrdered.length && arrivalOrdered[idx].arrival <= t){
+        if(!queue.includes(arrivalOrdered[idx].pid) && rem[arrivalOrdered[idx].pid] > 0) queue.push(arrivalOrdered[idx].pid);
+        idx++;
+      }
+      if(queue.length === 0){
+        // if nothing ready, advance time to next arrival
+        if(idx < arrivalOrdered.length) t = arrivalOrdered[idx].arrival;
+        else break;
+        continue;
+      }
+      const pid = queue.shift();
+      const proc = list.find(p => p.pid === pid);
+      const exec = Math.min(q, rem[pid]);
+      const start = t;
+      const end = t + exec;
+      gantt.push({pid, start, end});
+      rem[pid] -= exec;
+      t = end;
+      // enqueue new arrivals that came during execution
+      while(idx < arrivalOrdered.length && arrivalOrdered[idx].arrival <= t){
+        if(!queue.includes(arrivalOrdered[idx].pid) && rem[arrivalOrdered[idx].pid] > 0) queue.push(arrivalOrdered[idx].pid);
+        idx++;
+      }
+      if(rem[pid] > 0){
+        queue.push(pid); // requeue
+      } else {
+        finished.add(pid);
+      }
     }
+
+    // compute waiting & tat using finish times
+    list.forEach(p => {
+      const runs = gantt.filter(g => g.pid === p.pid);
+      const finish = runs[runs.length - 1].end;
+      p.tat = finish - p.arrival;
+      p.waiting = p.tat - p.burst;
+    });
   }
 
-  return { gantt, waiting, turnaround };
+  // write results table
+  if(outTableBody){
+    outTableBody.innerHTML = '';
+    let totalWait = 0, totalTat = 0;
+    list.forEach(p=>{
+      outTableBody.innerHTML += `<tr>
+        <td>${p.pid}</td>
+        <td>${p.arrival}</td>
+        <td>${p.burst}</td>
+        <td>${p.priority === null ? '-' : p.priority}</td>
+        <td>${p.waiting}</td>
+        <td>${p.tat}</td>
+      </tr>`;
+      totalWait += p.waiting;
+      totalTat += p.tat;
+    });
+    const avgW = (totalWait / list.length).toFixed(2);
+    const avgT = (totalTat / list.length).toFixed(2);
+    const avgDiv = document.getElementById('averages');
+    if(avgDiv) avgDiv.innerText = `Average Waiting Time: ${avgW}    •    Average Turnaround Time: ${avgT}`;
+  }
+
+  // render Gantt chart (simple proportional widths)
+  if(ganttDiv){
+    ganttDiv.innerHTML = '';
+    // find timeline min and max to scale
+    const minStart = Math.min(...gantt.map(g=>g.start));
+    const maxEnd = Math.max(...gantt.map(g=>g.end));
+    const totalSpan = Math.max(1, maxEnd - minStart);
+    const scalePxPerUnit = Math.min(60, Math.max(10, 520 / totalSpan)); // adjust width scaling
+    gantt.forEach(seg=>{
+      const w = (seg.end - seg.start) * scalePxPerUnit;
+      const el = document.createElement('div');
+      el.className = 'gantt-box';
+      el.style.minWidth = (w)+'px';
+      el.style.textAlign = 'center';
+      el.style.padding = '8px 6px';
+      el.innerHTML = `<div>${seg.pid}</div><div style="font-weight:600;font-size:0.8rem;color:rgba(0,0,0,0.6)">${seg.start}→${seg.end}</div>`;
+      ganttDiv.appendChild(el);
+    });
+  }
+
+  // also save the last run results for convenience (so user can revisit)
+  save('lastGantt', gantt);
+  save('lastList', list);
 }
 
-// --- Gantt Chart Renderer ---
-function renderGantt(gantt) {
-  const div = document.getElementById("gantt");
-  div.innerHTML = "";
-  gantt.forEach(seg => {
-    const el = document.createElement("div");
-    el.className = "segment";
-    el.style.background = `hsl(${Math.random() * 360}, 70%, 50%)`;
-    el.textContent = `${seg.pid} ${seg.start}–${seg.end}`;
-    div.appendChild(el);
-  });
-}
-
-// --- Average Times ---
-function showAverages(wait, tat) {
-  const avgW = (wait.reduce((a, b) => a + b, 0) / wait.length).toFixed(2);
-  const avgT = (tat.reduce((a, b) => a + b, 0) / tat.length).toFixed(2);
-  document.getElementById("results").innerHTML =
-    `<strong>Average Waiting Time:</strong> ${avgW} | <strong>Average Turnaround Time:</strong> ${avgT}`;
-}
-
-// --- Clear / Reset ---
-function clearTable() {
-  processes = [];
-  pidCount = 1;
-  document.querySelector("#processTable tbody").innerHTML = "";
-  document.getElementById("gantt").innerHTML = "";
-  document.getElementById("results").innerHTML = "";
-}
-
-function resetAll() {
-  clearTable();
-  document.getElementById("arrival").value = "";
-  document.getElementById("burst").value = "";
-  document.getElementById("priority").value = "";
-  document.getElementById("quantum").value = "";
-}
+// expose renderOutput for onload
+window.renderOutput = renderOutput;
+window.toggleQuantum = toggleQuantum;
