@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scheduler — Output</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body onload="renderOutput()">
+  <div class="app">
+    <header>
+      <h1>📊 Scheduling Output</h1>
+      <p class="sub">Table + Gantt Chart</p>
+    </header>
+
+    <section class="table-section card">
+      <h2>Results</h2>
+      <p><strong>Algorithm:</strong> <span id="algoOut"></span>
+         &nbsp; | &nbsp;
+         <strong>Quantum:</strong> <span id="quantumOut"></span>
+      </p>
+
+      <table id="outputTable">
+        <thead>
+          <tr><th>PID</th><th>Arrival</th><th>Burst</th><th>Priority</th><th>Waiting</th><th>Turnaround</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="gantt-section card">
+      <h2>Gantt Chart</h2>
+      <div id="gantt" class="gantt-row"></div>
+      <div id="averages" style="margin-top:12px;color:var(--muted)"></div>
+    </section>
+
+    <div style="text-align:center; margin-top:18px;">
+      <button class="btn" onclick="location.href='scheduler.html'">🔄 Back</button>
+      <button class="btn" onclick="location.href='index.html'">🏠 Home</button>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
