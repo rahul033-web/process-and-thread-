@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scheduler — Input</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>➕ Add Processes</h1>
+      <p class="sub">Enter arrival, burst, (optional) priority. Then choose algorithm & run.</p>
+    </header>
+
+    <section class="controls card">
+      <h2>Add Process</h2>
+      <div class="input-row">
+        <input id="arrival" type="number" placeholder="Arrival (e.g. 0)" min="0">
+        <input id="burst" type="number" placeholder="Burst (e.g. 5)" min="1">
+        <input id="priority" type="number" placeholder="Priority (lower → higher)">
+        <button id="addBtn" class="btn">➕ Add</button>
+      </div>
+
+      <h2>Algorithm</h2>
+      <div class="input-row">
+        <select id="algorithm" onchange="toggleQuantum()">
+          <option value="fcfs">FCFS</option>
+          <option value="sjf">SJF (Non-preemptive)</option>
+          <option value="priority">Priority (Non-preemptive)</option>
+          <option value="rr">Round Robin</option>
+        </select>
+
+        <div id="quantumDiv" style="display:none">
+          <input id="quantum" type="number" placeholder="Quantum (e.g. 2)" min="1">
+        </div>
+
+        <button id="runBtn" class="btn primary">▶ Run Scheduler</button>
+      </div>
+
+      <div class="input-row">
+        <button id="clearBtn" class="btn danger">🗑 Clear Processes</button>
+        <button id="resetBtn" class="btn">🔄 Reset All</button>
+        <button class="btn" onclick="location.href='index.html'">🏠 Home</button>
+      </div>
+    </section>
+
+    <section class="table-section card">
+      <h2>Process Table</h2>
+      <table id="processTable">
+        <thead>
+          <tr><th>PID</th><th>Arrival</th><th>Burst</th><th>Priority</th><th>Waiting</th><th>Turnaround</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <footer><small>© Advanced Scheduler</small></footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
